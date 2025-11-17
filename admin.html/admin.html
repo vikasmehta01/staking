@@ -1,0 +1,510 @@
+Admin.html
+
+
+
+
+
+Admin.html <!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Admin Panel — USDT Staking (BSC Testnet)</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+  <style>
+    :root{
+      --bg:#0b0d0f; --card:#0f1214; --muted:#9aa4b2; --accent:#ffd86b;
+      --panel:#121416; --success:#00c176; --danger:#ff6b6b;
+    }
+    body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:#e6eef6;}
+    header{padding:18px 24px;text-align:center;background:linear-gradient(90deg,#081018,#0d1016);box-shadow:0 2px 8px rgba(0,0,0,0.5);}
+    header h1{margin:0;color:var(--accent);font-size:20px;}
+    .topbar{display:flex;justify-content:flex-end;gap:12px;padding:12px 24px;align-items:center;max-width:1180px;margin:0 auto;}
+    .wallet-btn{background:var(--accent);color:#000;padding:8px 14px;border-radius:8px;border:0;font-weight:600;cursor:pointer;}
+    .container{padding:20px;display:grid;grid-template-columns:1fr 420px;gap:18px;max-width:1180px;margin:18px auto;}
+    .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 20px rgba(0,0,0,0.4);}
+    h2{color:var(--accent);margin:0 0 12px 0;}
+    label{display:block;color:var(--muted);font-size:13px;margin-top:8px;}
+    input,select{width:100%;padding:8px 10px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:var(--panel);color:#fff;box-sizing:border-box;margin-top:6px;}
+    .small-btn{padding:8px 10px;border-radius:8px;border:0;background:#2a2f35;color:#fff;cursor:pointer;margin-top:8px;}
+    .accent-btn{background:var(--accent);color:#000;border:0;padding:10px 12px;border-radius:8px;cursor:pointer;font-weight:700;margin-top:8px;}
+    table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;}
+    th,td{padding:10px 8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:left;}
+    th{color:var(--accent);font-weight:700;}
+    .muted{color:var(--muted);font-size:13px;}
+    .danger{background:var(--danger);color:#fff;padding:8px 10px;border-radius:8px;border:0;cursor:pointer;}
+    .success{background:var(--success);color:#000;padding:8px 10px;border-radius:8px;border:0;cursor:pointer;}
+    .pill{display:inline-block;padding:6px 10px;border-radius:16px;background:#222;color:#fff;font-weight:600;}
+    footer{padding:14px;text-align:center;color:var(--muted);font-size:12px;}
+    @media(max-width:980px){.container{grid-template-columns:1fr;padding:12px;} }
+    .toast { position:fixed; right:18px; bottom:18px; background:#111; padding:12px 16px; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,0.6); color:#fff; z-index:9999; }
+    .row { display:flex; gap:10px; align-items:center; }
+    .row > * { flex:1; }
+    .mini { width:120px; }
+    .kbd { background:#0b0d0f;border:1px solid rgba(255,255,255,0.04);padding:6px 8px;border-radius:6px;font-weight:700;display:inline-block;color:var(--muted); }
+  </style>
+</head>
+<body>
+<header><h1>Admin Panel — USDT Staking (BSC Testnet)</h1></header>
+<div class="topbar">
+  <div id="walletDisplay" class="muted">Not connected</div>
+  <button id="connectBtn" class="wallet-btn">Connect Wallet</button>
+</div>
+
+<main class="container">
+
+  <!-- LEFT: Main Admin Controls -->
+  <div class="card">
+    <h2>Owner Dashboard</h2>
+    <div id="ownerHint" class="muted" style="margin-bottom:10px">Connect MetaMask with the owner account to see admin controls.</div>
+
+    <div id="ownerControls" style="display:none;">
+
+      <div style="display:flex;gap:10px;align-items:center;">
+        <div style="flex:1">
+          <label>Contract Owner</label>
+          <div id="ownerAddr" class="kbd">-</div>
+        </div>
+        <div style="width:160px">
+          <label>Chain</label>
+          <div class="kbd">BSC Testnet</div>
+        </div>
+      </div>
+
+      <hr style="border:0;border-top:1px solid rgba(255,255,255,0.03);margin:12px 0">
+
+      <h3 style="color:var(--accent);margin-bottom:8px">Quick Stats</h3>
+      <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:8px">
+        <div class="card"><div class="muted">Total Users</div><div id="statUsers" class="value">-</div></div>
+        <div class="card"><div class="muted">Total Staked</div><div id="statStaked" class="value">-</div></div>
+        <div class="card"><div class="muted">Total Withdrawn (net)</div><div id="statWithdrawn" class="value">-</div></div>
+        <div class="card"><div class="muted">Total Fees Collected</div><div id="statFees" class="value">-</div></div>
+        <div class="card"><div class="muted">Contract Balance</div><div id="statContractBal" class="value">-</div></div>
+<div class="card"><div class="muted">Pending Withdrawals</div><div id="statPending" class="value">-</div></div>
+<div class="card"><div class="muted">Available Liquidity</div><div id="statAvailable" class="value">-</div></div>
+
+      </div>
+
+      <hr style="border:0;border-top:1px solid rgba(255,255,255,0.03);margin:12px 0">
+
+      <h3 style="color:var(--accent);margin-bottom:8px">Contract Controls</h3>
+      <label>Pause / Unpause Contract</label>
+      <div class="row">
+        <button id="pauseContract" class="small-btn">Pause</button>
+        <button id="unpauseContract" class="small-btn">Unpause</button>
+      </div>
+
+      <label style="margin-top:8px">Pause / Unpause User (by address)</label>
+      <input id="pauseUserAddr" placeholder="user address (0x...)" />
+      <div class="row">
+        <button id="pauseUserBtn" class="small-btn">Pause User</button>
+        <button id="unpauseUserBtn" class="small-btn">Unpause User</button>
+      </div>
+
+      <hr style="border:0;border-top:1px solid rgba(255,255,255,0.03);margin:12px 0">
+
+      <h3 style="color:var(--accent);margin-bottom:8px">Settings</h3>
+      <label>Set Daily ROI (BPS) — example 100 = 1%</label>
+      <div class="row">
+        <input id="dailyRoiInp" placeholder="e.g., 100" />
+        <button id="setDailyRoi" class="small-btn">Set</button>
+      </div>
+
+      <label>Set Withdraw Fee (BPS) — example 500 = 5%</label>
+      <div class="row">
+        <input id="withdrawFeeInp" placeholder="e.g., 500" />
+        <button id="setWithdrawFee" class="small-btn">Set</button>
+      </div>
+
+      <label>Update Admin Wallet (fees go here)</label>
+      <div class="row">
+        <input id="adminWalletInp" placeholder="0x..." />
+        <button id="setAdminWalletBtn" class="small-btn">Set</button>
+      </div>
+
+      <hr style="border:0;border-top:1px solid rgba(255,255,255,0.03);margin:12px 0">
+
+      <h3 style="color:var(--accent);margin-bottom:8px">Emergency</h3>
+      <label>Emergency withdraw ALL tokens to address</label>
+      <div class="row">
+        <input id="emergencyTo" placeholder="0x..." />
+        <button id="emergencyWithdrawBtn" class="danger">Emergency Withdraw</button>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- RIGHT: Withdrawals Queue & Approvals -->
+  <div class="card">
+    <h2>Withdrawals Queue</h2>
+    <div class="muted">Approve on-chain or Reject (frontend mark). Table shows recent requests.</div>
+    <div style="margin-top:10px;overflow:auto;max-height:620px;">
+      <table id="withdrawTable">
+        <thead>
+          <tr><th>ID</th><th>User</th><th>Amount</th><th>When</th><th>Status</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="withdrawTbody">
+          <tr><td colspan="6" class="center muted">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div style="margin-top:12px">
+      <button id="refreshQueue" class="small-btn">Refresh Queue</button>
+      <button id="exportCsv" class="small-btn">Export CSV</button>
+    </div>
+  </div>
+
+</main>
+
+<footer style="max-width:1180px;margin:12px auto;text-align:center;color:var(--muted);font-size:13px;">
+  Admin panel — keep your owner wallet safe. Use Testnet for testing.
+</footer>
+
+<div id="toastWrap" style="position:fixed;right:18px;bottom:18px;z-index:9999"></div>
+
+<script>
+/* ===== CONFIG ===== */
+const CONFIG = {
+  stakingAddress: "0x0c38576d85677dE210DD1C68378604d3AacfAB27",
+  decimals: 6,
+  desiredChainId: 97 // BSC Testnet
+};
+
+/* ===== ABI (admin functions + useful views) ===== */
+const STAKING_ABI = [
+  "function owner() view returns (address)",
+  "function nextWithdrawId() view returns (uint256)",
+  "function withdrawals(uint256) view returns (address user,uint256 amount,bool approved,uint256 timestamp)",
+  "function approveWithdrawal(uint256 id) external",
+  "function pendingWithdrawals(address) view returns (uint256)",
+  "function totalUsers() view returns (uint256)",
+  "function totalStaked() view returns (uint256)",
+  "function totalWithdrawnNet() view returns (uint256)",
+  "function totalFeesCollected() view returns (uint256)",
+  "function pauseContract() external",
+  "function unpauseContract() external",
+  "function pauseUser(address a) external",
+  "function unpauseUser(address a) external",
+  "function setDailyRoi(uint256 bps) external",
+  "function setWithdrawFee(uint256 bps) external",
+  "function setAdminWallet(address a) external",
+  "function emergencyWithdrawAll(address to) external",
+  "function getContractStats() view returns (uint256 contractBalance,uint256 totalPendingWithdrawals)",
+  // events
+  "event WithdrawalRequested(address indexed user, uint256 id, uint256 amount)",
+  "event WithdrawalApproved(address indexed user, uint256 id, uint256 gross, uint256 net, uint256 fee)"
+];
+
+/* ===== STATE ===== */
+let provider, signer, account, stakingContract;
+let isOwner = false;
+
+/* ===== Helpers ===== */
+function toast(msg, ttl = 3500) {
+  try {
+    const w = document.getElementById("toastWrap");
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.innerText = msg;
+    w.appendChild(el);
+    setTimeout(()=>{ el.style.opacity = 0; setTimeout(()=>el.remove(),400); }, ttl);
+  } catch(e){ console.log("toast err",e); }
+}
+function fromUnits(bn) {
+  try { return Number(ethers.utils.formatUnits(bn, CONFIG.decimals)); } catch (e) { return 0; }
+}
+function toUnits(v) { return ethers.utils.parseUnits(String(v), CONFIG.decimals); }
+
+/* ===== Init provider ===== */
+async function initProvider(tempProvider) {
+  provider = tempProvider;
+  signer = provider.getSigner();
+  account = await signer.getAddress();
+  const net = await provider.getNetwork();
+  if (net.chainId !== CONFIG.desiredChainId) {
+    try {
+      await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x61' }] });
+      location.reload();
+      return;
+    } catch (e) {
+      toast("Please switch MetaMask to BSC Testnet (97)");
+    }
+  }
+
+  stakingContract = new ethers.Contract(CONFIG.stakingAddress, STAKING_ABI, signer);
+  document.getElementById("walletDisplay").innerText = account;
+  await loadOwnerState();
+  attachHandlers();
+  await refreshStats();
+  await loadWithdrawQueue();
+  listenEvents();
+  localStorage.setItem("admin_connected", "1");
+}
+
+/* ===== Connect ===== */
+document.getElementById("connectBtn").addEventListener("click", async () => {
+  if (!window.ethereum) return alert("MetaMask not found");
+  try {
+    await window.ethereum.request({ method: "eth_requestAccounts" });
+    const tempProv = new ethers.providers.Web3Provider(window.ethereum, "any");
+    await initProvider(tempProv);
+  } catch (e) { console.error(e); alert("Connect failed: " + (e.message || e)); }
+});
+
+window.addEventListener("load", async () => {
+  try {
+    if (window.ethereum) {
+      const tempProv = new ethers.providers.Web3Provider(window.ethereum, "any");
+      const accs = await tempProv.listAccounts();
+      if (accs && accs.length > 0) {
+        await initProvider(tempProv);
+      }
+    }
+  } catch (e) { console.warn("Auto init error", e); }
+});
+
+/* ===== Owner state & visibility ===== */
+async function loadOwnerState() {
+  try {
+    const ownerAddr = await stakingContract.owner();
+    document.getElementById("ownerAddr").innerText = ownerAddr;
+    isOwner = ownerAddr.toLowerCase() === account.toLowerCase();
+    document.getElementById("ownerControls").style.display = isOwner ? "block" : "none";
+    document.getElementById("ownerHint").innerText = isOwner ? "You are the owner. Admin controls are visible." : "Connected — not owner. Switch to owner account to access admin functions.";
+  } catch (e) {
+    console.error("owner state error", e);
+    document.getElementById("ownerHint").innerText = "Could not fetch owner (check network).";
+  }
+}
+
+/* ===== Refresh stats ===== */
+async function refreshStats() {
+  try {
+    const tu = await stakingContract.totalUsers().catch(()=>ethers.constants.Zero);
+    const ts = await stakingContract.totalStaked().catch(()=>ethers.constants.Zero);
+    const tw = await stakingContract.totalWithdrawnNet().catch(()=>ethers.constants.Zero);
+    const tf = await stakingContract.totalFeesCollected().catch(()=>ethers.constants.Zero);
+
+    document.getElementById("statUsers").innerText = (Number(tu) || 0);
+    document.getElementById("statStaked").innerText = `${toFixed(fromUnits(ts))} USDT`;
+    document.getElementById("statWithdrawn").innerText = `${toFixed(fromUnits(tw))} USDT`;
+    document.getElementById("statFees").innerText = `${toFixed(fromUnits(tf))} USDT`;
+    await loadContractStats();
+  } catch (e) { console.error("refreshStats error", e); }
+}
+
+/* small formatting */
+function toFixed(n) { return Number(n).toLocaleString('en-US', {maximumFractionDigits:6,minimumFractionDigits:6}); }
+
+// 🔥 Load Contract Balance + Pending Withdrawals
+async function loadContractStats() {
+  if (!stakingContract) return;
+  try {
+    const [contractBalance, totalPendingWithdrawals] = await stakingContract.getContractStats();
+    const available = contractBalance.sub(totalPendingWithdrawals);
+    document.getElementById("statContractBal").innerText = `${toFixed(fromUnits(contractBalance))} USDT`;
+    document.getElementById("statPending").innerText = `${toFixed(fromUnits(totalPendingWithdrawals))} USDT`;
+    document.getElementById("statAvailable").innerText = `${toFixed(fromUnits(available))} USDT`;
+  } catch (e) {
+    console.error("loadContractStats error", e);
+    document.getElementById("statContractBal").innerText = "-";
+    document.getElementById("statPending").innerText = "-";
+    document.getElementById("statAvailable").innerText = "-";
+  }
+}
+
+/* ===== Load withdrawals queue ===== */
+async function loadWithdrawQueue() {
+  const tbody = document.getElementById("withdrawTbody");
+  tbody.innerHTML = '<tr><td colspan="6" class="center muted">Loading...</td></tr>';
+  if (!stakingContract) return;
+  try {
+    const nextBn = await stakingContract.nextWithdrawId().catch(()=>ethers.constants.Zero);
+    const next = Number(nextBn || 0);
+    const rows = [];
+    // show last 200 entries at most
+    const start = Math.max(1, next - 200);
+    for (let i = next - 1; i >= start; i--) {
+      const w = await stakingContract.withdrawals(i).catch(()=>null);
+      if (!w || !w.user || w.user === ethers.constants.AddressZero) continue;
+      // check if locally rejected
+      const rejected = getLocalRejected(i);
+      rows.push({ id: i, user: w.user, amount: fromUnits(w.amount), approved: !!w.approved, ts: Number(w.timestamp)*1000, rejected });
+    }
+    // render
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="center muted">No withdrawals found.</td></tr>';
+      return;
+    }
+    let html = "";
+    for (const r of rows) {
+      const when = new Date(r.ts).toLocaleString();
+      const status = r.approved ? '<span style="color:#00FF90;font-weight:700">Approved</span>' : (r.rejected ? '<span style="color:#ff8b6b;font-weight:700">Rejected (local)</span>' : '<span style="color:#ffd86b">Pending</span>');
+      html += `<tr>
+        <td>${r.id}</td>
+        <td style="max-width:240px;word-break:break-all">${r.user}</td>
+        <td>${toFixed(r.amount)} USDT</td>
+        <td>${when}</td>
+        <td>${status}</td>
+        <td>
+          ${!r.approved && !r.rejected ? `<button data-id="${r.id}" class="approveBtn small-btn success">Approve</button> <button data-id="${r.id}" class="rejectBtn small-btn" style="background:#2b2b2b;color:#fff">Reject</button>` : ''}
+          <button data-id="${r.id}" class="viewBtn small-btn">View</button>
+        </td>
+      </tr>`;
+    }
+    tbody.innerHTML = html;
+
+    // attach handlers
+    document.querySelectorAll(".approveBtn").forEach(btn => {
+      btn.onclick = async (ev) => {
+        const id = Number(ev.currentTarget.getAttribute("data-id"));
+        if (!confirm(`Approve withdrawal ID ${id} ? This will call approveWithdrawal(${id}) on-chain.`)) return;
+        try {
+          const tx = await stakingContract.approveWithdrawal(id);
+          await tx.wait();
+          toast(`Approved ${id}`);
+          await loadWithdrawQueue();
+          await refreshStats();
+        } catch (e) {
+          console.error("approve failed", e);
+          alert("Approve failed: " + (e?.message||e));
+        }
+      };
+    });
+    document.querySelectorAll(".rejectBtn").forEach(btn => {
+      btn.onclick = async (ev) => {
+        const id = Number(ev.currentTarget.getAttribute("data-id"));
+        if (!confirm(`Mark withdrawal ID ${id} as Rejected (LOCAL only)?`)) return;
+        setLocalRejected(id);
+        toast(`Marked ${id} as Rejected (local)`);
+        await loadWithdrawQueue();
+      };
+    });
+    document.querySelectorAll(".viewBtn").forEach(btn => {
+  btn.onclick = async (ev) => {
+    const id = Number(ev.currentTarget.getAttribute("data-id"));
+    // ✅ fixed regex & clean path replace
+    const base = location.origin + location.pathname.replace(/\/admin\.html$/, '/index.html');
+    window.open(`${base}?showWithdrawId=${id}`, "_blank");
+  };
+});
+
+
+  } catch (e) {
+    console.error("loadWithdrawQueue error", e);
+    tbody.innerHTML = '<tr><td colspan="6" class="center muted">Error loading queue</td></tr>';
+  }
+}
+
+/* ===== Local reject store (frontend only) ===== */
+function localRejectedKey() { return `admin_rejected_withdrawals_v1`; }
+function setLocalRejected(id) {
+  const arr = JSON.parse(localStorage.getItem(localRejectedKey()) || "[]");
+  if (!arr.includes(id)) arr.push(id);
+  localStorage.setItem(localRejectedKey(), JSON.stringify(arr));
+}
+function getLocalRejected(id) {
+  const arr = JSON.parse(localStorage.getItem(localRejectedKey()) || "[]");
+  return arr.includes(id);
+}
+
+/* ===== Attach other handlers ===== */
+function attachHandlers() {
+  document.getElementById("refreshQueue").onclick = loadWithdrawQueue;
+  document.getElementById("exportCsv").onclick = exportCsv;
+
+  // pause/unpause contract
+  document.getElementById("pauseContract").onclick = async () => {
+    if (!isOwner) return alert("Owner only");
+    try { const tx = await stakingContract.pauseContract(); await tx.wait(); toast("Contract paused"); } catch(e){ alert("Failed: "+(e?.message||e)); }
+  };
+  document.getElementById("unpauseContract").onclick = async () => {
+    if (!isOwner) return alert("Owner only");
+    try { const tx = await stakingContract.unpauseContract(); await tx.wait(); toast("Contract unpaused"); } catch(e){ alert("Failed: "+(e?.message||e)); }
+  };
+
+  // user pause/unpause
+  document.getElementById("pauseUserBtn").onclick = async () => {
+    if (!isOwner) return alert("Owner only");
+    const a = document.getElementById("pauseUserAddr").value;
+    if (!a || !ethers.utils.isAddress(a)) return alert("Enter valid address");
+    try { const tx = await stakingContract.pauseUser(a); await tx.wait(); toast("User paused"); } catch(e){ alert("Failed: "+(e?.message||e)); }
+  };
+  document.getElementById("unpauseUserBtn").onclick = async () => {
+    if (!isOwner) return alert("Owner only");
+    const a = document.getElementById("pauseUserAddr").value;
+    if (!a || !ethers.utils.isAddress(a)) return alert("Enter valid address");
+    try { const tx = await stakingContract.unpauseUser(a); await tx.wait(); toast("User unpaused"); } catch(e){ alert("Failed: "+(e?.message||e)); }
+  };
+
+  // settings
+  document.getElementById("setDailyRoi").onclick = async () => {
+    if (!isOwner) return alert("Owner only");
+    const v = Number(document.getElementById("dailyRoiInp").value);
+    if (isNaN(v)) return alert("Enter number");
+    try { const tx = await stakingContract.setDailyRoi(v); await tx.wait(); toast("Daily ROI updated"); } catch(e){ alert("Failed: "+(e?.message||e)); }
+  };
+  document.getElementById("setWithdrawFee").onclick = async () => {
+    if (!isOwner) return alert("Owner only");
+    const v = Number(document.getElementById("withdrawFeeInp").value);
+    if (isNaN(v)) return alert("Enter number");
+    try { const tx = await stakingContract.setWithdrawFee(v); await tx.wait(); toast("Withdraw fee updated"); } catch(e){ alert("Failed: "+(e?.message||e)); }
+  };
+  document.getElementById("setAdminWalletBtn").onclick = async () => {
+    if (!isOwner) return alert("Owner only");
+    const a = document.getElementById("adminWalletInp").value;
+    if (!a || !ethers.utils.isAddress(a)) return alert("Enter valid address");
+    try { const tx = await stakingContract.setAdminWallet(a); await tx.wait(); toast("Admin wallet updated"); } catch(e){ alert("Failed: "+(e?.message||e)); }
+  };
+
+  // emergency withdraw
+  document.getElementById("emergencyWithdrawBtn").onclick = async () => {
+    if (!isOwner) return alert("Owner only");
+    const to = document.getElementById("emergencyTo").value;
+    if (!to || !ethers.utils.isAddress(to)) return alert("Enter valid address");
+    if (!confirm(`Emergency withdraw ALL tokens to ${to}? This transfers entire contract token balance.`)) return;
+    try { const tx = await stakingContract.emergencyWithdrawAll(to); await tx.wait(); toast("Emergency withdraw executed"); await refreshStats(); } catch(e){ alert("Failed: "+(e?.message||e)); }
+  };
+}
+
+/* ===== Export CSV helper ===== */
+async function exportCsv() {
+  const nextBn = await stakingContract.nextWithdrawId().catch(()=>ethers.constants.Zero);
+  const next = Number(nextBn || 0);
+  const rows = [["id","user","amount","timestamp","approved","localRejected"]];
+  const start = Math.max(1, next - 200);
+  for (let i = next - 1; i >= start; i--) {
+    const w = await stakingContract.withdrawals(i).catch(()=>null);
+    if (!w || !w.user || w.user === ethers.constants.AddressZero) continue;
+    const rejected = getLocalRejected(i);
+    rows.push([i, w.user, fromUnits(w.amount), Number(w.timestamp)*1000, !!w.approved, rejected]);
+  }
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(",")).join("\n");
+  const blob = new Blob([csv], {type: "text/csv"});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url; a.download = `withdrawals_${Date.now()}.csv`; document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url);
+}
+
+/* ===== Events (listen to approvals & requests) ===== */
+function listenEvents() {
+  if (!stakingContract) return;
+  try {
+    if (stakingContract.removeAllListeners) stakingContract.removeAllListeners();
+    stakingContract.on("WithdrawalRequested", (user, id, amount) => {
+      toast(`WithdrawalRequested: ${id}`);
+      loadWithdrawQueue().catch(()=>{});
+    });
+    stakingContract.on("WithdrawalApproved", (user, id, gross, net, fee) => {
+      toast(`WithdrawalApproved: ${id}`);
+      loadWithdrawQueue().catch(()=>{});
+      refreshStats().catch(()=>{});
+    });
+  } catch (e) { console.warn("events err", e); }
+}
+</script>
+</body>
+</html>
+
+

@@ -1,0 +1,755 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Full Staking DApp — Dashboard (BSC Testnet)</title>
+
+  <!-- ethers v5 -->
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+
+  <style>
+    :root{
+      --bg:#0b0d0f; --card:#0f1214; --muted:#9aa4b2; --accent:#ffd86b;
+      --panel:#121416; --success:#00c176; --danger:#ff6b6b;
+    }
+    body{margin:0;font-family:Inter,Arial,sans-serif;background:var(--bg);color:#e6eef6;}
+    header{padding:18px 24px;text-align:center;background:linear-gradient(90deg,#081018,#0d1016);box-shadow:0 2px 8px rgba(0,0,0,0.5);}
+    header h1{margin:0;color:var(--accent);font-size:20px;}
+    .topbar{display:flex;justify-content:flex-end;gap:12px;padding:12px 24px;align-items:center;max-width:1180px;margin:0 auto;}
+    .wallet-btn{background:var(--accent);color:#000;padding:8px 14px;border-radius:8px;border:0;font-weight:600;cursor:pointer;}
+    .container{padding:20px;display:grid;grid-template-columns:360px 1fr;gap:18px;max-width:1180px;margin:18px auto;}
+    .left{display:flex;flex-direction:column;gap:14px;}
+    .card{background:var(--card);border-radius:12px;padding:14px;box-shadow:0 6px 20px rgba(0,0,0,0.4);}
+    .card h2{margin:0 0 10px 0;color:var(--accent);font-size:16px;}
+    .muted{color:var(--muted);font-size:13px;}
+    input, textarea{width:100%;padding:10px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.04);background:var(--panel);color:#fff;box-sizing:border-box;}
+    .small-btn{padding:10px 12px;border-radius:8px;border:0;background:#2a2f35;color:#fff;cursor:pointer;margin-top:8px;}
+    .accent-btn{background:var(--accent);color:#000;border:0;padding:10px 12px;border-radius:8px;cursor:pointer;font-weight:700;margin-top:8px;}
+    .right{display:flex;flex-direction:column;gap:14px;}
+    .grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+    .value{font-size:18px;font-weight:700;color:#fff;}
+    .label{font-size:12px;color:var(--muted);margin-top:6px;}
+    table{width:100%;border-collapse:collapse;margin-top:8px;font-size:13px;}
+    th,td{padding:10px 8px;border-bottom:1px solid rgba(255,255,255,0.03);text-align:left;}
+    th{color:var(--accent);font-weight:700;}
+    .center{text-align:center;}
+    footer{padding:14px;text-align:center;color:var(--muted);font-size:12px;}
+    @media(max-width:980px){.container{grid-template-columns:1fr;padding:12px;}.grid-4{grid-template-columns:repeat(2,1fr);}}
+    .pill{display:inline-block;padding:6px 10px;border-radius:16px;background:#222;color:#fff;font-weight:600;}
+    #disclaimer { transition: all 0.3s ease; }
+    #disclaimer:hover { background: rgba(255,255,255,0.05); transform: scale(1.01); }
+    #disclaimer p { margin: 6px 0; }
+    .toast { position:fixed; right:18px; bottom:18px; background:#111; padding:12px 16px; border-radius:8px; box-shadow:0 6px 20px rgba(0,0,0,0.6); color:#fff; z-index:9999; }
+  </style>
+</head>
+<body>
+<header><h1>USDT Staking — Full DApp (BSC Testnet)</h1></header>
+<div class="topbar">
+  <div id="walletDisplay" class="muted">Not connected</div>
+  <button id="connectBtn" class="wallet-btn">Connect Wallet</button>
+</div>
+
+<main class="container">
+
+  <!-- LEFT: Actions -->
+  <div class="left">
+
+    <div class="card">
+      <h2>Stake USDT</h2>
+      <div class="muted">Min stake: <strong>20 USDT</strong></div>
+      <input id="stakeAmt" type="number" placeholder="Enter amount (20,40...)" />
+      <div style="display:flex;gap:10px;margin-top:8px">
+        <button id="approveBtn" class="small-btn">Quick Approve</button>
+        <button id="stakeBtn" class="accent-btn">Stake Now</button>
+      </div>
+      <div id="stakeNote" class="muted" style="margin-top:8px">Tip: Approve once then stake.</div>
+      <div style="margin-top:10px">
+        <button id="syncRoiBtn" class="small-btn">Sync ROI (On-chain)</button>
+        <span class="muted" style="margin-left:8px;font-size:13px">Triggers ROI accrual & level distribution (gas)</span>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>P2P Stake (Stake For)</h2>
+      <div class="muted">Frontend-only P2P: deducts from your on-site Total Wallet (no MetaMask popup)</div>
+      <input id="p2pAmount" type="number" placeholder="P2P amount (min 20)" />
+      <input id="p2pAddress" type="text" placeholder="Recipient wallet address" style="margin-top:8px" />
+      <button id="stakeForBtn" class="accent-btn" style="margin-top:10px">Stake For (P2P) — frontend only</button>
+      <div id="p2pStatus" class="muted" style="margin-top:8px">P2P actions will update your on-site wallet balance immediately.</div>
+    </div>
+
+    <div class="card">
+      <h2>Your Referral Link</h2>
+      <input id="refLink" type="text" readonly placeholder="Connect wallet to generate link" />
+      <div style="display:flex;gap:8px;margin-top:8px">
+        <button id="copyLink" class="small-btn">Copy Referral Link</button>
+        <button id="showTeam" class="small-btn">Show Team</button>
+      </div>
+      <div class="muted" style="margin-top:8px">Users who register via this link will credit you referral income.</div>
+    </div>
+
+    <div class="card">
+      <h2>Withdraw</h2>
+      <div class="muted">Minimum withdraw 20 USDT (admin approval applies)</div>
+      <input id="withdrawAmt" type="number" placeholder="20, 40, 60 ..." />
+      <button id="requestWithdraw" class="accent-btn" style="margin-top:8px">Request Withdraw</button>
+      <div id="withdrawStatus" class="muted" style="margin-top:8px">No withdraw requests yet.</div>
+      <div id="withdrawableDisplay" class="muted" style="margin-top:8px">Withdrawable: 0 USDT</div>
+    </div>
+
+  </div>
+
+  <!-- RIGHT: Dashboard -->
+  <div class="right">
+
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div><h2>Wallet Balances & Income</h2><div class="muted">Instant / Level / ROI</div></div>
+        <div><button id="refreshBtn" class="small-btn">Refresh</button></div>
+      </div>
+
+      <div style="margin-top:12px" class="grid-4">
+        <div class="card" style="background:#0b0d0f;padding:12px;">
+          <div class="label">Instant Income</div>
+          <div class="value" id="instantIncome">0.000000 USDT</div>
+        </div>
+        <div class="card" style="background:#0b0d0f;padding:12px;">
+          <div class="label">Level income</div>
+          <div class="value" id="levelIncome">0.000000 USDT</div>
+        </div>
+        <div class="card" style="background:#0b0d0f;padding:12px;">
+          <div class="label">ROI Pending</div>
+          <div class="value" id="roiPending">0.000000 USDT</div>
+        </div>
+        <div class="card" style="background:#0b0d0f;padding:12px;">
+          <div class="label">Total Wallet</div>
+          <div class="value" id="totalWallet">0.000000 USDT</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h2>Staking Info</h2>
+      <table>
+        <tr><td>Staked</td><td id="stakedDisplay">0.000000 USDT</td></tr>
+        <tr><td>Target (3x)</td><td id="targetDisplay">0.000000 USDT</td></tr>
+        <tr><td>Days to 3x</td><td id="days3x">0 days</td></tr>
+        <tr><td>Package Status</td><td id="pkgStatus">Inactive</td></tr>
+      </table>
+    </div>
+
+    <div id="progressSection" class="card">
+      <p style="margin-bottom: 6px; color: #ffcc00; font-weight: bold;">Progress to 3x </p>
+      <div style="width:100%; background:#333; border-radius:8px; height:10px; overflow:hidden;">
+        <div id="progressFill" style="height:100%; width:0%; background:linear-gradient(90deg,#ffcc00,#00ff99); transition:width 1s;"></div>
+      </div>
+      <p id="progressLabel" style="margin-top:4px; font-size:13px; color:#aaa;">0% completed</p>
+    </div>
+
+    <div class="card">
+      <h2>Team & Levels</h2>
+      <div style="display:flex; gap:12px; align-items:center;">
+        <div style="flex:1"><div class="muted">Direct</div><div class="value" id="directCount">0</div></div>
+        <div style="flex:1"><div class="muted">Indirect</div><div class="value" id="indirectCount">0</div></div>
+        <div style="flex:2"><div class="muted">Active / Inactive</div><div class="value" id="activeCounts">0 / 0</div></div>
+      </div>
+
+      <div style="margin-top:12px">
+        <table>
+          <thead><tr><th>Level</th><th>Percent</th><th>Status</th></tr></thead>
+          <tbody id="levelsTbody">
+            <tr><td>L1</td><td>10%</td><td id="sL1">Pending</td></tr>
+            <tr><td>L2</td><td>10%</td><td id="sL2">Pending</td></tr>
+            <tr><td>L3</td><td>5%</td><td id="sL3">Pending</td></tr>
+            <tr><td>L4</td><td>3%</td><td id="sL4">Pending</td></tr>
+            <tr><td>L5</td><td>2%</td><td id="sL5">Pending</td></tr>
+            <tr><td>L6</td><td>1%</td><td id="sL6">Pending</td></tr>
+            <tr><td>L7</td><td>1%</td><td id="sL7">Pending</td></tr>
+            <tr><td>L8</td><td>1%</td><td id="sL8">Pending</td></tr>
+            <tr><td>L9</td><td>1%</td><td id="sL9">Pending</td></tr>
+            <tr><td>L10</td><td>1%</td><td id="sL10">Pending</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<div class="card" style="max-width:1180px;margin:18px auto;">
+  <h3>Withdrawal History (Requests & Approved)</h3>
+  <div class="history-table">
+    <table id="withdrawHistory">
+      <thead>
+        <tr>
+          <th>When</th>
+          <th>Amount (USDT)</th>
+          <th>Fee (5%)</th>
+          <th>You’ll Receive</th>
+          <th>Status</th>
+          <th>ID</th>
+        </tr>
+      </thead>
+      <tbody id="withdrawHistoryBody">
+        <tr>
+          <td colspan="6" class="center muted">No history yet.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+
+<!-- DISCLAIMER -->
+<footer id="disclaimer" style="margin-top:60px;padding:25px 12px;text-align:center;background:rgba(255,255,255,0.03);border-top:1px solid rgba(255,255,255,0.07);font-size:14px;line-height:1.6;color:#bbb;backdrop-filter:blur(8px);">
+  <div style="max-width:900px;margin:auto;">
+    <h3 style="color:#fff;font-size:16px;margin-bottom:8px;">⚠️ Disclaimer</h3>
+    <p>
+      This DApp interacts with on-chain smart contracts. This UI will simulate some actions (P2P) frontend-only as requested.
+      Always be careful on mainnet — use testnet while testing.
+    </p>
+    <div style="margin-top:14px;font-size:13px;color:#888;">
+      &copy; <script>document.write(new Date().getFullYear());</script> USDT Staking dashboard.
+    </div>
+  </div>
+</footer>
+
+<div id="toastWrap" style="position:fixed;right:18px;bottom:18px;z-index:9999"></div>
+
+<!-- ======= CONFIG & ABI ======= -->
+<script>
+/* ======= CONFIG - keeping your provided addresses ======= */
+const CONFIG = {
+  tokenAddress: "0x1a904b37B0d9D6ab755aBDa4656E42F278FC89AA",
+  stakingAddress: "0x0c38576d85677dE210DD1C68378604d3AacfAB27",
+  decimals: 6,
+  desiredChainId: 97 // BSC Testnet
+};
+
+/* ======= Minimal ABI required (kept to functions we use) ======= */
+const STAKING_ABI = [
+  // core
+  "function stake(uint256 amount, address ref) external",
+  "function stakeFor(address refUser, uint256 amount, address refForRefUser) external",
+  "function requestWithdrawal(uint256 amt) external",
+  "function updateMyROI() external",
+  "function getLiveROI(address usr) view returns (uint256)",
+  "function getWithdrawable(address usr) view returns (uint256)",
+  "function getTimeTo3x(address usr) view returns (uint256)",
+  "function getDirectRefs(address usr) view returns (address[])",
+  "function registered(address) view returns (bool)",
+  "function users(address) view returns (address referrer,uint256 totalStake,uint256 totalWithdrawn,uint256 totalEarned,uint256 lastRoiUpdate,uint256 roiIncome,uint256 instantIncome,uint256 levelIncome,uint256 pendingWithdrawals,bool isActive,bool isPaused,uint256 inactiveAt)",
+  "function withdrawals(uint256) view returns (address user,uint256 amount,bool approved,uint256 timestamp)",
+  "function nextWithdrawId() view returns (uint256)",
+  "function owner() view returns (address)",
+
+  // events (we will listen)
+  "event Registered(address indexed user, address indexed referrer)",
+  "event Staked(address indexed user, address indexed from, uint256 amount)",
+  "event InstantCommissionPaid(address indexed from, address indexed to, uint256 amount)",
+  "event LevelCommissionPaid(address indexed from, address indexed to, uint8 level, uint256 amount)",
+  "event RoiAccrued(address indexed user, uint256 amount)",
+  "event RoiSyncedOnChain(address indexed user, uint256 reward)",
+  "event WithdrawalRequested(address indexed user, uint256 id, uint256 amount)",
+  "event WithdrawalApproved(address indexed user, uint256 id, uint256 gross, uint256 net, uint256 fee)"
+];
+
+const TOKEN_ABI = [
+  "function decimals() view returns (uint8)",
+  "function balanceOf(address) view returns (uint256)",
+  "function approve(address,uint256) returns (bool)"
+];
+
+/* ======= STATE ======= */
+let provider, signer, account, stakingContract, tokenContract;
+let liveROITimer = null;
+let lastLiveRoiValue = 0;
+let localP2PKey = "p2p_history_v1"; // stores frontend-only P2P entries
+</script>
+
+<!-- ======= FUNCTIONS ======= -->
+<script>
+/* ======= small UI helpers ======= */
+function toast(msg, ttl = 3000) {
+  try {
+    const w = document.getElementById("toastWrap");
+    const el = document.createElement("div");
+    el.className = "toast";
+    el.innerText = msg;
+    w.appendChild(el);
+    setTimeout(()=>{ el.style.opacity = 0; setTimeout(()=>el.remove(),400); }, ttl);
+  } catch(e){ console.log("toast err",e); }
+}
+function toFixedNumber(v, d = 6) {
+  if (isNaN(v)) return "0.000000";
+  return Number(v).toLocaleString('en-US', {minimumFractionDigits:d,maximumFractionDigits:d});
+}
+function fromUnits(bn) {
+  try { return Number(ethers.utils.formatUnits(bn, CONFIG.decimals)); } catch (e) { return 0; }
+}
+function toUnits(amount) {
+  // amount is number or string in human units
+  return ethers.utils.parseUnits(String(amount), CONFIG.decimals);
+}
+
+/* ======= Provider init ======= */
+async function initProviderFromProviderObj(tempProvider) {
+  provider = tempProvider;
+  signer = provider.getSigner();
+  account = await signer.getAddress();
+  // chain check
+  const { chainId } = await provider.getNetwork();
+  if (chainId !== CONFIG.desiredChainId) {
+    // try to prompt chain switch (BSC Testnet)
+    try {
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0x61' }] // 97
+      });
+      // reload to re-init
+      location.reload();
+      return;
+    } catch (switchError) {
+      console.warn("Chain switch failed:", switchError);
+      toast("Please switch MetaMask to BSC Testnet (ChainId 97)");
+    }
+  }
+
+  stakingContract = new ethers.Contract(CONFIG.stakingAddress, STAKING_ABI, signer);
+  tokenContract = new ethers.Contract(CONFIG.tokenAddress, TOKEN_ABI, signer);
+
+  document.getElementById("walletDisplay").innerText = `${account}`;
+
+  // referral link
+  const base = window.location.href.split("?")[0];
+  document.getElementById("refLink").value = `${base}?ref=${account}`;
+
+  attachUIHandlers();
+  listenEvents();
+
+  localStorage.setItem("staking_connected", "1");
+
+  await refreshAll();
+}
+
+/* ======= Connect flow ======= */
+async function connect() {
+  if (!window.ethereum) return alert("MetaMask not found. Install and refresh.");
+  try {
+    await window.ethereum.request({ method: "eth_requestAccounts" });
+    const tempProv = new ethers.providers.Web3Provider(window.ethereum, "any");
+    await initProviderFromProviderObj(tempProv);
+  } catch (e) {
+    console.error("connect failed:", e);
+    throw e;
+  }
+}
+document.getElementById("connectBtn").addEventListener("click", async () => {
+  try { await connect(); } catch (e) { alert("Connect failed: " + (e.message || e)); }
+});
+
+/* ======= Auto reconnect on load ======= */
+window.addEventListener("load", async () => {
+  try {
+    if (window.ethereum) {
+      const tempProv = new ethers.providers.Web3Provider(window.ethereum, "any");
+      const accs = await tempProv.listAccounts();
+      if (accs && accs.length > 0) {
+        await initProviderFromProviderObj(tempProv);
+        console.log("Auto reconnect (wallet available)");
+        return;
+      }
+    }
+    if (localStorage.getItem("staking_connected")) {
+      try {
+        if (window.ethereum) {
+          const tempProv = new ethers.providers.Web3Provider(window.ethereum, "any");
+          const accs = await tempProv.listAccounts();
+          if (accs && accs.length > 0) {
+            await initProviderFromProviderObj(tempProv);
+            console.log("Auto reconnect from localStorage");
+          } else {
+            console.log("Local flag present but wallet not authorized");
+          }
+        }
+      } catch (e) { console.warn("Auto reconnect error:", e); }
+    }
+  } catch (e) { console.warn("Auto load handler error:", e); }
+});
+
+/* ======= UI handlers ======= */
+let uiHandlersAttached = false;
+function attachUIHandlers(){
+  if (uiHandlersAttached) return;
+  uiHandlersAttached = true;
+
+  // Approve
+  document.getElementById("approveBtn").onclick = async () => {
+    if (!tokenContract) return alert("Connect wallet first");
+    try {
+      const tx = await tokenContract.approve(CONFIG.stakingAddress, ethers.constants.MaxUint256);
+      await tx.wait();
+      toast("Approved ✔");
+      await refreshAll();
+    } catch (e) { console.error(e); alert("Approve failed: " + (e.message || e)); }
+  };
+
+  // Stake
+  document.getElementById("stakeBtn").onclick = async () => {
+    try {
+      if (!stakingContract) return alert("Connect wallet first");
+      const amount = document.getElementById("stakeAmt").value;
+      if (!amount || Number(amount) < 20) return alert("Minimum stake 20 USDT");
+      const units = toUnits(amount);
+
+      // auto-register
+      const isReg = await stakingContract.registered(account).catch(()=>false);
+      const refParam = new URLSearchParams(window.location.search).get("ref") || ethers.constants.AddressZero;
+      if (!isReg) {
+        let refToUse = ethers.constants.AddressZero;
+        if (refParam && ethers.utils.isAddress(refParam)) refToUse = refParam;
+        try {
+          const txr = await stakingContract.register(refToUse);
+          await txr.wait();
+          console.log("Auto-registered with ref:", refToUse);
+        } catch (regErr) {
+          console.warn("Auto register failed:", regErr);
+        }
+      }
+
+      const tx = await stakingContract.stake(units, refParam || ethers.constants.AddressZero);
+      await tx.wait();
+      toast("Stake successful ✔");
+      await refreshAll();
+
+    } catch (e) {
+      console.error("Stake failed:", e);
+      const msg = e?.error?.message || e?.data?.message || e?.message || e;
+      alert("Stake failed: " + String(msg).slice(0,300));
+    }
+  };
+
+  // P2P Stake - FRONTEND ONLY deduction
+  document.getElementById("stakeForBtn").onclick = async () => {
+    try {
+      if (!stakingContract || !account) return alert("Connect wallet first");
+      const amtStr = document.getElementById("p2pAmount").value;
+      const addr = document.getElementById("p2pAddress").value;
+      if (!amtStr || Number(amtStr) < 20) return alert("P2P min 20");
+      if (!addr || !ethers.utils.isAddress(addr)) return alert("Enter valid wallet address");
+
+      // read withdrawable (on-chain)
+      const availBn = await stakingContract.getWithdrawable(account).catch(()=>ethers.constants.Zero);
+      const avail = fromUnits(availBn || 0);
+      if (Number(avail) < Number(amtStr)) {
+        return alert(`Insufficient on-site balance. Withdrawable: ${toFixedNumber(avail,6)} USDT`);
+      }
+
+      // Deduct frontend-only (store in localStorage)
+      const entry = { when: Date.now(), from: account, to: addr, amount: Number(amtStr) };
+      const history = JSON.parse(localStorage.getItem(localP2PKey) || "[]");
+      history.push(entry);
+      localStorage.setItem(localP2PKey, JSON.stringify(history));
+
+      // Update UI (reduce totalWallet displayed instantly).
+      toast(`P2P stake simulated: ${amtStr} USDT -> ${addr}`);
+      await refreshAll(); // refresh reads withdrawable and recalculates total
+
+    } catch (e) {
+      console.error("P2P stake error:", e);
+      alert("P2P failed: " + (e?.message || e));
+    }
+  };
+
+  // Request Withdraw
+  document.getElementById("requestWithdraw").onclick = async () => {
+    try {
+      if (!stakingContract) return alert("Connect wallet first");
+      const amt = document.getElementById("withdrawAmt").value;
+      if (!amt || Number(amt) < 20) return alert("Min withdraw 20");
+      const units = toUnits(amt);
+
+      const tx = await stakingContract.requestWithdrawal(units);
+      const rec = await tx.wait();
+
+   // On success, immediately deduct from Total Wallet (frontend only)
+const withdrawVal = Number(document.getElementById("withdrawAmt").value);
+const twElem = document.getElementById("totalWallet");
+if (twElem && withdrawVal) {
+  const oldVal = parseFloat(twElem.innerText.replace(/[^0-9.-]+/g,"")) || 0;
+  const newVal = Math.max(0, oldVal - withdrawVal);
+  twElem.innerText = `${newVal.toFixed(6)} USDT`;
+}
+// Add to history instantly
+toast(`Withdrawal requested ✔ (-${withdrawVal} USDT)`);
+addLocalWithdrawPending(rec);
+await refreshAll();
+
+
+    } catch (e) {
+      console.error("Withdraw failed:", e);
+      const msg = e?.error?.message || e?.data?.message || e?.message || e;
+      alert("Withdraw failed: " + String(msg).slice(0,300));
+    }
+  };
+
+  // Copy referral
+  document.getElementById("copyLink").onclick = async () => {
+    const v = document.getElementById("refLink").value;
+    if (!v) return alert("No link yet");
+    await navigator.clipboard.writeText(v);
+    toast("Referral link copied!");
+  };
+
+  // show team
+  document.getElementById("showTeam").onclick = async () => {
+    await loadTeamInfo();
+    toast("Team data refreshed");
+  };
+
+  // refresh
+  document.getElementById("refreshBtn").onclick = refreshAll;
+
+  // Sync ROI on-chain
+  document.getElementById("syncRoiBtn").onclick = async () => {
+    try {
+      if (!stakingContract) return alert("Connect wallet first");
+      const tx = await stakingContract.updateMyROI();
+      await tx.wait();
+      toast("ROI synced on-chain ✔");
+      await refreshAll();
+    } catch (e) {
+      console.error("Sync ROI failed:", e);
+      alert("Sync ROI failed: " + (e?.message || e));
+    }
+  };
+}
+
+/* ======= Event listeners (contract) ======= */
+function listenEvents(){
+  if (!stakingContract) return;
+  try {
+    // remove old
+    if (stakingContract.removeAllListeners) stakingContract.removeAllListeners();
+
+    stakingContract.on("Staked", (user, from, amount) => {
+      console.log("Staked", user, from, amount.toString());
+      if (user && account && user.toLowerCase() === account.toLowerCase()) toast("✅ Your stake processed");
+      refreshAll().catch(()=>{});
+    });
+    stakingContract.on("Registered", (user, ref) => { console.log("Registered", user, ref); refreshAll().catch(()=>{}); });
+    stakingContract.on("WithdrawalRequested", (user, id, amount) => { console.log("WithdrawalRequested", user, id.toString(), amount.toString()); refreshAll().catch(()=>{}); });
+    stakingContract.on("WithdrawalApproved", (user, id, gross, net, fee) => { console.log("WithdrawalApproved", user, id.toString(), gross.toString(), net.toString()); toast("Withdrawal approved: " + fromUnits(net) + " USDT"); refreshAll().catch(()=>{}); });
+    stakingContract.on("RoiSyncedOnChain", (user, reward) => { console.log("RoiSyncedOnChain", user, reward.toString()); if (user.toLowerCase() === account.toLowerCase()) toast("ROI synced on-chain"); refreshAll().catch(()=>{}); });
+    stakingContract.on("InstantCommissionPaid", (from, to, amount) => { console.log("InstantCommissionPaid", from, to, amount.toString()); refreshAll().catch(()=>{}); });
+    stakingContract.on("LevelCommissionPaid", (from, to, level, amount) => { console.log("LevelCommissionPaid", from, to, level, amount.toString()); refreshAll().catch(()=>{}); });
+
+  } catch (e) { console.warn("listenEvents error", e); }
+}
+
+/* ======= refresh UI ======= */
+async function refreshAll() {
+  if (!stakingContract || !account) return;
+  // live ROI (view)
+  await updateLiveROIDisplay();
+
+  try {
+    // wallet token balance (on Metamask)
+    const rawBal = await tokenContract.balanceOf(account).catch(()=>0);
+    const walletBal = fromUnits(rawBal);
+    document.getElementById("walletDisplay").innerText =
+      `${account} — ${toFixedNumber(walletBal, 4)} USDT`;
+
+    // Fetch snapshot
+    const snapshot = await stakingContract.users(account).catch(()=>null);
+    const staked = snapshot ? fromUnits(snapshot.totalStake || snapshot[1] || 0) : 0;
+    const roiOnChain = snapshot ? fromUnits(snapshot.roiIncome || snapshot[5] || 0) : 0;
+    const instantIncome = snapshot ? fromUnits(snapshot.instantIncome || snapshot[6] || 0) : 0;
+    const levelIncome = snapshot ? fromUnits(snapshot.levelIncome || snapshot[7] || 0) : 0;
+    const pendingWithdrawals = snapshot ? fromUnits(snapshot.pendingWithdrawals || snapshot[8] || 0) : 0;
+    const isActive = snapshot ? !!snapshot.isActive : false;
+    const totalEarned = snapshot ? fromUnits(snapshot.totalEarned || snapshot[3] || 0) : 0;
+
+    // totalWallet should use live ROI (we already updated roiPending via getLiveROI)
+    const roiLive = lastLiveRoiValue || roiOnChain;
+    const totalWallet = Number(roiLive) + Number(instantIncome) + Number(levelIncome);
+
+    document.getElementById("stakedDisplay").innerText = `${toFixedNumber(staked, 6)} USDT`;
+    document.getElementById("targetDisplay").innerText = `${toFixedNumber(staked * 3, 6)} USDT`;
+    document.getElementById("roiPending").innerText = `${toFixedNumber(roiLive, 6)} USDT`;
+    document.getElementById("instantIncome").innerText = `${toFixedNumber(instantIncome, 6)} USDT`;
+    document.getElementById("levelIncome").innerText = `${toFixedNumber(levelIncome, 6)} USDT`;
+    document.getElementById("totalWallet").innerText = `${toFixedNumber(totalWallet, 6)} USDT`;
+    document.getElementById("pkgStatus").innerText = isActive ? "✅ Active" : "Inactive";
+
+    // withdrawable
+    const withdrawableBn = await stakingContract.getWithdrawable(account).catch(()=>ethers.constants.Zero);
+    const withdrawable = fromUnits(withdrawableBn || 0);
+    document.getElementById("withdrawableDisplay").innerText = `Withdrawable: ${toFixedNumber(withdrawable,6)} USDT`;
+
+    // days to 3x
+    const daysBn = await stakingContract.getTimeTo3x(account).catch(()=>0);
+    document.getElementById("days3x").innerText = (Number(daysBn) || 0) + " days";
+
+    // Team: directs + indirects (recursive up to depth 6 to avoid too many calls)
+    let directCount = 0, indirectCount = 0, active = 0, inactive = 0;
+    try {
+      const directs = await stakingContract.getDirectRefs(account).catch(()=>[]);
+      directCount = directs.length;
+      // count indirects (level 2)
+      let indirects = [];
+      for (const d of directs) {
+        const subs = await stakingContract.getDirectRefs(d).catch(()=>[]);
+        indirects = indirects.concat(subs);
+        const dInfo = await stakingContract.users(d).catch(()=>null);
+        const st = dInfo ? fromUnits(dInfo.totalStake || dInfo[1]) : 0;
+        if (st > 0) active++; else inactive++;
+      }
+      indirectCount = indirects.length;
+    } catch (e) { console.warn("team fetch error", e); }
+    document.getElementById("directCount").innerText = directCount;
+    document.getElementById("indirectCount").innerText = indirectCount;
+    document.getElementById("activeCounts").innerText = `${active} / ${inactive}`;
+
+    // Level unlock UI: mark open if directCount >= level index
+    const rows = document.querySelectorAll("#levelsTbody tr");
+    rows.forEach((r, i) => {
+      const cell = r.querySelector("td:last-child");
+      if (!cell) return;
+      if (i < Math.min(directCount, 10)) {
+        cell.innerText = "Open ✅"; cell.style.color = "#00FF90"; cell.style.fontWeight = "600";
+      } else {
+        cell.innerText = "Pending"; cell.style.color = ""; cell.style.fontWeight = "";
+      }
+    });
+
+    // Update progress bar using totalEarned and staked*3 target
+    updateProgressBar(staked, staked * 3, totalEarned);
+
+    // load withdraw history
+    await loadWithdrawHistory();
+
+  } catch (e) {
+    console.error("refreshAll error:", e);
+  }
+}
+
+/* ======= Live ROI (getLiveROI) ======= */
+async function updateLiveROIDisplay() {
+  if (!stakingContract || !account) return;
+  try {
+    const valBn = await stakingContract.getLiveROI(account).catch(()=>ethers.constants.Zero);
+    const live = fromUnits(valBn || 0);
+    lastLiveRoiValue = live;
+    const roiEl = document.getElementById("roiPending");
+    if (roiEl) roiEl.innerText = `${toFixedNumber(live, 6)} USDT`;
+    // update totalWallet quick
+    const inst = Number(document.getElementById("instantIncome").innerText.replace(/[^0-9.-]+/g,"")) || 0;
+    const lvl = Number(document.getElementById("levelIncome").innerText.replace(/[^0-9.-]+/g,"")) || 0;
+    const total = live + inst + lvl;
+    document.getElementById("totalWallet").innerText = `${toFixedNumber(total,6)} USDT`;
+    return live;
+  } catch (e) {
+    console.warn("updateLiveROIDisplay err", e);
+    return 0;
+  } finally {
+    // restart live roi timer
+    if (liveROITimer) clearTimeout(liveROITimer);
+    liveROITimer = setTimeout(()=>{ updateLiveROIDisplay().catch(()=>{}); }, 2000);
+  }
+}
+
+/* ======= Progress bar helper ======= */
+function updateProgressBar(staked, target, totalEarned) {
+  try {
+    const fill = document.getElementById("progressFill");
+    const label = document.getElementById("progressLabel");
+    if (!fill || !label) return;
+    const pct = target > 0 ? Math.min(100, (totalEarned / target) * 100) : 0;
+    fill.style.width = pct.toFixed(2) + "%";
+    label.innerText = `${pct.toFixed(2)}% completed`;
+  } catch (e) {
+    console.warn("updateProgressBar error:", e);
+  }
+}
+
+/* ======= Withdraw history loader ======= */
+async function loadWithdrawHistory() {
+  const tbody = document.getElementById('withdrawHistoryBody');
+  tbody.innerHTML = '<tr><td colspan="4" class="center muted">Loading...</td></tr>';
+  if (!stakingContract || !account) return;
+  try {
+    const nextBn = await stakingContract.nextWithdrawId().catch(()=>ethers.constants.Zero);
+    const total = Number(nextBn || 0);
+    let html = "";
+    for (let i = total - 1; i >= 1; i--) {
+      const req = await stakingContract.withdrawals(i).catch(()=>null);
+      if (!req || !req.user || req.user === ethers.constants.AddressZero) continue;
+      if (req.user.toLowerCase() !== account.toLowerCase()) continue;
+      const time = new Date(Number(req.timestamp)*1000).toLocaleString();
+      const amount = fromUnits(req.amount);
+      const status = req.approved ? "✅ Approved" : "⏳ Pending";
+      const withdrawFeeBps = 500; // 5%
+const fee = (amount * withdrawFeeBps) / 10000;
+const net = amount - fee;
+
+html += `
+  <tr>
+    <td>${time}</td>
+    <td>${toFixedNumber(amount, 2)} USDT</td>
+    <td>${fee.toFixed(2)} USDT</td>
+    <td>${net.toFixed(2)} USDT</td>
+    <td>${status}</td>
+    <td>${i}</td>
+  </tr>`;
+
+    }
+
+    // append any frontend-only P2P entries that acted like "internal stake" (optional)
+    const p2p = JSON.parse(localStorage.getItem(localP2PKey) || "[]");
+    // We don't show P2P in withdraw history; P2P has its own store if needed.
+
+    tbody.innerHTML = html || '<tr><td colspan="4" class="center muted">No history yet.</td></tr>';
+  } catch(e) {
+    console.error("Withdraw history error:", e);
+    tbody.innerHTML = '<tr><td colspan="4" class="center muted">Error loading history</td></tr>';
+  }
+}
+
+/* ======= Helper: when withdrawal requested, add a quick UI entry (using event logs from tx) ======= */
+async function addLocalWithdrawPending(txReceipt) {
+  try {
+    // try to get WithdrawalRequested event from receipt logs (if emitted)
+    const ev = txReceipt.events ? txReceipt.events.find(e => e.event === "WithdrawalRequested") : null;
+    // We will simply show a friendly status and refresh history from chain
+    await refreshAll();
+  } catch (e) { console.warn("addLocalWithdrawPending", e); }
+}
+
+/* ======= Team loader helper (just triggers refreshAll's team logic) ======= */
+async function loadTeamInfo() {
+  await refreshAll();
+}
+
+/* ======= Chain/account change handlers ======= */
+if (window.ethereum) {
+  window.ethereum.on("accountsChanged", (accs) => {
+    if (accs.length === 0) {
+      document.getElementById("walletDisplay").innerText = "Not connected";
+      localStorage.removeItem("staking_connected");
+      if (liveROITimer) clearTimeout(liveROITimer);
+    } else {
+      location.reload();
+    }
+  });
+  window.ethereum.on("chainChanged", () => { location.reload(); });
+}
+</script>
+<!-- ======= END ======= -->
+</body>
+</html>
+
+
+ 
